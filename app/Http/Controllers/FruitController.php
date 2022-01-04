@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Fruit;
 use App\Http\Requests\StoreFruitRequest;
 use App\Http\Requests\UpdateFruitRequest;
+use http\Env\Request;
 use Illuminate\Support\Facades\Validator;
 use Intervention\Image\Facades\Image;
 
@@ -46,7 +47,7 @@ class FruitController extends Controller
             "photo" => "required|file|mimes:jpg,png,jpeg"
         ]);
 
-        return $request;
+//        return $request;
 
 
         $file = $request->file("photo");
@@ -68,9 +69,13 @@ class FruitController extends Controller
         $fruit->photo = $newName;
         $fruit->save();
 
+        $fruit->original_photo = asset("storage/photo/".$fruit->photo);
+        $fruit->thumbnail_photo = asset("storage/thumbnail/".$fruit->photo);
+        $fruit->date = $fruit->created_at->diffForHumans();
+
         return response()->json([
             "status" => "success",
-            "info" => $request->all(),
+            "info" => $fruit,
         ]);
     }
 
@@ -116,6 +121,19 @@ class FruitController extends Controller
      */
     public function destroy(Fruit $fruit)
     {
-        //
+
+        if (!$fruit->delete()) {
+            return response([
+                "status" => "error",
+                "info" => "fail"
+            ]);
+        }
+
+        $fruit->delete();
+
+        return response([
+            "status" => "success",
+            "info" => "Deleted Successfully"
+        ]);
     }
 }

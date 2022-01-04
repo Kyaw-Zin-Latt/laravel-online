@@ -18,15 +18,15 @@
         <div class="col-12">
             <div class="card mt-5">
                 <div class="card-body">
-                    <form action="{{ route('fruit.store') }}" class="dropzone" id="upload-form" method="post" enctype="multipart/form-data">
+                    <form action="{{ route('fruit.store') }}" id="fruitForm" method="post" enctype="multipart/form-data">
                         @csrf
                         <div class="row">
-{{--                            <div class="col">--}}
-{{--                                <input type="file" name="photo" class="form-control">--}}
-{{--                            </div>--}}
-                           <div class="col">
-                               <div class="previews"></div>
-                           </div>
+                            <div class="col">
+                                <input type="file" name="photo" class="form-control">
+                            </div>
+{{--                           <div class="col">--}}
+{{--                               <div class="previews"></div>--}}
+{{--                           </div>--}}
                             <div class="col">
                                 <input type="text" name="name" class="form-control">
                                 <p class="text-danger fw-bolder nameError"></p>
@@ -36,7 +36,11 @@
                                 <p class="text-danger fw-bolder priceError"></p>
                             </div>
                             <div class="col">
-                                <button type="submit" class="btn btn-primary">Add fruit</button>
+                                <button class="btn btn-primary d-none" id="loadingBtn" type="button" disabled>
+                                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                    Loading...
+                                </button>
+                                <button id="normalBtn" type="submit" class="btn btn-primary d-block">Add fruit</button>
                             </div>
                         </div>
                     </form>
@@ -49,12 +53,13 @@
                             <th>#</th>
                             <th>photo</th>
                             <th>Name</th>
+                            <th>Control</th>
                             <th>Price</th>
                         </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="rows" class="">
                         @foreach(\App\Models\Fruit::all() as $fruit)
-                            <tr>
+                            <tr id="row{{ $fruit->id }}">
                                 <td>{{ $fruit->id }}</td>
                                 <td>
                                     <a class="my-link" href="{{ asset('storage/photo/'.$fruit->photo) }}">
@@ -63,6 +68,16 @@
 
                                 </td>
                                 <td>{{ $fruit->name }}</td>
+                                <td>
+                                    <div class="btn-group">
+                                        <button id="delBtn" onclick="del({{ $fruit->id }})" type="button" class="btn btn-outline-primary">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-outline-primary">
+                                            <i class="fas fa-pencil-alt"></i>
+                                        </button>
+                                    </div>
+                                </td>
                                 <td>{{ $fruit->price }}</td>
                             </tr>
                         @endforeach
@@ -147,71 +162,127 @@
         })
     }
 
-    Dropzone.options.uploadForm = { // The camelized version of the ID of the form element
-
-        // The configuration we've talked about above
-        autoProcessQueue: false,
-        // uploadMultiple: true,
-        parallelUploads: 100,
-        maxFiles: 100,
-        paramName: 'photo',
-        acceptedFiles: ".png,.jpg,.jpeg",
-        addRemoveLinks: true,
+    // Dropzone.options.uploadForm = { // The camelized version of the ID of the form element
+    //
+    //     // The configuration we've talked about above
+    //     autoProcessQueue: false,
+    //     // uploadMultiple: true,
+    //     parallelUploads: 100,
+    //     maxFiles: 100,
+    //     paramName: 'photo',
+    //     acceptedFiles: ".png,.jpg,.jpeg",
+    //     addRemoveLinks: true,
 
 
         // The setting up of the dropzone
-        init: function() {
-            var myDropzone = this;
+    //     init: function() {
+    //         var myDropzone = this;
+    //
+    //         let fruitForm = document.querySelector("#upload-form");
+    //         // First change the button to actually tell Dropzone to process the queue.
+    //         fruitForm.addEventListener("submit", function(e) {
+    //             // Make sure that the form isn't actually being sent.
+    //             e.preventDefault();
+    //             e.stopPropagation();
+    //             myDropzone.processQueue();
+    //         });
+    //
+    //         // Listen to the sendingmultiple event. In this case, it's the sendingmultiple event instead
+    //         // of the sending event because uploadMultiple is set to true.
+    //         this.on("sending", function(response) {
+    //             // Gets triggered when the form is actually being sent.
+    //             // Hide the success button or the complete form.
+    //             console.log(response);
+    //         });
+    //         this.on("success", function(files, response) {
+    //             // Gets triggered when the files have successfully been sent.
+    //             // Redirect user or notify of success.
+    //             console.log(response);
+    //             fruitForm.reset();
+    //             if(response.status == "success") {
+    //                 successToast(response);
+    //             }
+    //         });
+    //         this.on("error", function(files, response) {
+    //             // Gets triggered when there was an error sending the files.
+    //             // Maybe show form again, and notify user of error
+    //             console.log(response);
+    //         });
+    //         this.on("complete", function(file) {
+    //             this.removeFile(file);
+    //         });
+    //     }
+    //
+    // }
 
-            let fruitForm = document.querySelector("#upload-form");
-            // First change the button to actually tell Dropzone to process the queue.
-            fruitForm.addEventListener("submit", function(e) {
-                // Make sure that the form isn't actually being sent.
-                e.preventDefault();
-                e.stopPropagation();
-                myDropzone.processQueue();
-            });
 
-            // Listen to the sendingmultiple event. In this case, it's the sendingmultiple event instead
-            // of the sending event because uploadMultiple is set to true.
-            this.on("sending", function(response) {
-                // Gets triggered when the form is actually being sent.
-                // Hide the success button or the complete form.
-                console.log(response);
-            });
-            this.on("success", function(files, response) {
-                // Gets triggered when the files have successfully been sent.
-                // Redirect user or notify of success.
-                console.log(response);
+
+    let fruitForm = document.querySelector("#fruitForm");
+    fruitForm.addEventListener("submit",function (e) {
+        e.preventDefault();
+
+        //loading start
+        let loadingBtn = document.getElementById("loadingBtn");
+        let normalBtn = document.getElementById("normalBtn");
+
+        loadingBtn.classList.remove("d-none");
+        normalBtn.classList.add("d-none");
+
+
+        let formData = new FormData(this);
+        axios.post(fruitForm.getAttribute('action'),formData).then(function (response) {
+
+            console.log(response.data);
+            if(response.data.status == "success") {
+
+                // clean data from form after added success
                 fruitForm.reset();
-                if(response.status == "success") {
-                    successToast(response);
-                }
-            });
-            this.on("error", function(files, response) {
-                // Gets triggered when there was an error sending the files.
-                // Maybe show form again, and notify user of error
-                console.log(response);
-            });
-            this.on("complete", function(file) {
-                this.removeFile(file);
-            });
-        }
 
+                let tableRow = document.getElementById("rows");
+                let row = response.data.info;
+                let tr = document.createElement("tr");
+
+                //animation
+                tr.classList.add("animate__animated", "animate__fadeInDown")
+
+                tr.innerHTML = `
+                    <td>${row.id}</td>
+                    <td>
+                        <a class="my-link" href='${row.original_photo}'>
+                            <img src="${row.thumbnail_photo}" width="50" alt="image alt"/>
+                        </a>
+                    </td>
+                    <td>${row.name}</td>
+                    <td>${row.price}</td>
+                `;
+
+                tableRow.append(tr)
+
+                // response toast alert after data added success
+                successToast(response.data);
+            } else {
+
+            }
+
+            //loading stop
+            let loadingBtn = document.getElementById("loadingBtn");
+            let normalBtn = document.getElementById("normalBtn");
+
+            loadingBtn.classList.add("d-none");
+            normalBtn.classList.remove("d-none");
+        })
+    })
+
+    //delete record
+    function del(id) {
+        axios.delete("/fruit/"+id).then(function (response) {
+            if (response.data.status) {
+                successToast(response.data);
+                document.getElementById("row"+id).remove();
+            }
+        })
     }
 
-    // let fruitForm = document.querySelector("#fruitForm");
-    // fruitForm.addEventListener("submit",function (e) {
-    //     e.preventDefault();
-    //     let formData = new FormData(this);
-    //     axios.post(fruitForm.getAttribute('action'),formData).then(function (response) {
-    //         console.log(response.data);
-    //         if(response.data.status == "success") {
-    //             fruitForm.reset();
-    //             successToast(response.data);
-    //         }
-    //     })
-    // })
 
     //venobox
 
